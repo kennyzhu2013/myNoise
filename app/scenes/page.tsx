@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "全部声景",
-  description: "檐雨、海岸、林间和溪流的连续层使用 CC0 现场录音，其余声景为程序合成。",
+  description: "九处声景的连续层使用 CC0 现场录音，个别短音和低频仍由程序合成。",
 };
 
 export default function ScenesPage() {
@@ -13,7 +13,7 @@ export default function ScenesPage() {
       <p className="font-display text-sm tracking-[0.16em] text-primary">Scenes</p>
       <h1 className="mt-2 text-4xl">全部声景</h1>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        每处声景都可以现场混合。檐雨、海岸、林间和溪流的连续层是现场录音，其余仍是合成纹理。筛选只按用途，不改变声音本身。
+        每处声景都可以现场混合。九处声景的连续层是现场录音，个别短音和低频仍是合成纹理。筛选只按用途，不改变声音本身。
       </p>
       <div className="mt-8">
         <SceneBrowser active="all" scenes={summaries()} />

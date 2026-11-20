@@ -4,7 +4,7 @@ import { stemCredits } from "@/lib/audio/stems";
 
 export const metadata: Metadata = {
   title: "关于",
-  description: "声境 Shengjing：四条核心声景使用 CC0 现场录音，其余由浏览器合成。与 myNoise 无关。",
+  description: "声境 Shengjing：九处声景使用 CC0 现场录音，个别层次仍由浏览器合成。与 myNoise 无关。",
 };
 
 const sections = [
@@ -14,7 +14,7 @@ const sections = [
   },
   {
     title: "声音从哪里来",
-    body: "檐下雨声、海岸长潮、林间清晨和石涧溪流里，每一条连续的推子用的是下面列出的不同 CC0 现场录音，剪成短循环后再接上。海岸的拍岸、碎沫、细浪和退浪仍按潮汐起伏。远鸥不是一条循环的海岸，而是几声分开的短录音，偶尔才叫。屋檐上的滴答、溪里的气泡，以及林间单独的鸟鸣，还有瀑布、雷雨、旷野风、夏夜虫鸣和篝火，仍由浏览器里的滤波噪声、包络和振荡器合成。这些录音不是 myNoise 的音频，也没有使用他们的采样或工程文件。",
+    body: "九处声景里，连续的层次尽量各用一段不同的 CC0 现场录音，剪短后接成循环。海岸的潮汐、旷野的阵风，以及原来写在声景里的起伏，都还在。远鸥、溅珠、落水、滴水、雷声、蛙鸣、露水、夜鸟、噼啪、爆裂和火星不是循环声床，而是分开的短录音，按原来的疏密响起。屋檐上的滴答、溪里的气泡、林间的鸟鸣，还有岩风、潭底、隔窗、低压、掠耳、木炭、夜气、余烬和柴薪，仍由浏览器里的滤波噪声、包络和振荡器合成。这些录音不是 myNoise 的音频，也没有使用他们的采样或工程文件。",
   },
   {
     title: "版权与声明",
@@ -31,7 +31,7 @@ export default function AboutPage() {
           <p className="font-display text-sm tracking-[0.2em] text-primary">Shengjing</p>
           <h1 className="mt-3 text-4xl leading-tight md:text-5xl">关于声境</h1>
           <p className="mt-5 text-lg leading-8 text-muted-foreground">
-            一套独立的自然声景。名字和界面是原创的。四条核心声景使用可再分发的现场录音，其余仍在浏览器里合成。
+            一套独立的自然声景。名字和界面是原创的。九处声景使用可再分发的现场录音，个别层次仍在浏览器里合成。
           </p>
         </div>
       </section>
