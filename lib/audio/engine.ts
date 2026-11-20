@@ -16,9 +16,10 @@ type Fader = {
 };
 
 /**
- * Realtime mixer. Core scenes play seamless recorded loops on the bed
- * layers that have a licensed stem. Every other layer stays on the
- * synthesized noise, envelope, and one-shot graph.
+ * Realtime mixer. Scenes play seamless recorded loops on the bed and
+ * cricket layers that have a licensed stem. Sparse layers with short
+ * takes play those takes instead of a synthesized one-shot. Every other
+ * layer stays on the synthesized noise, envelope, and one-shot graph.
  */
 export class SoundscapeEngine {
   private ctx: AudioContext | null = null;
@@ -186,7 +187,7 @@ export class SoundscapeEngine {
         continue;
       }
       if (track.type === "bed") this.buildBed(scene.slug, track);
-      else this.buildCrickets(track);
+      else this.buildCrickets(scene.slug, track);
     }
     this.built = true;
     this.builtSlug = scene.slug;
@@ -228,9 +229,11 @@ export class SoundscapeEngine {
     gain.gain.linearRampToValueAtTime(peak, when + 0.02);
     gain.gain.setValueAtTime(peak, when + Math.max(0.05, duration - 0.06));
     gain.gain.linearRampToValueAtTime(0, when + duration);
+    // Gull calls were trimmed with a gentle lowpass. Other recorded
+    // one-shots (thunder, drips, frogs, fire) keep their own spectrum.
     const lowpass = ctx.createBiquadFilter();
     lowpass.type = "lowpass";
-    lowpass.frequency.value = 1900 + Math.random() * 700;
+    lowpass.frequency.value = track.variant === "gull" ? 1900 + Math.random() * 700 : 16000;
     lowpass.Q.value = 0.7;
     const panner = ctx.createStereoPanner();
     panner.pan.value = (Math.random() * 2 - 1) * Math.min(0.7, track.spread);
@@ -340,11 +343,25 @@ export class SoundscapeEngine {
     });
   }
 
-  private buildCrickets(track: CricketTrack) {
+  private buildCrickets(slug: string, track: CricketTrack) {
     const ctx = this.ctx;
     const palette = this.palette;
     const bus = this.bus;
     if (!ctx || !palette || !bus) return;
+    const stem = stemFor(slug, track.id);
+    const recorded = stem ? this.stems.get(stem.id) : undefined;
+    if (recorded) {
+      const dest = this.fader(track, bus);
+      const src = playLoop(ctx, recorded, Math.random() * recorded.duration, 0.992 + Math.random() * 0.016);
+      this.own(src);
+      const motion = ctx.createGain();
+      motion.gain.value = 1;
+      // The chorus already pulses. This slow lift keeps the layer from sitting flat.
+      this.lfo(motion.gain, 0.05, 0.08);
+      src.connect(motion);
+      motion.connect(dest);
+      return;
+    }
     const dest = this.fader(track, bus);
     const voices = Math.max(1, Math.round(track.voices));
     for (let i = 0; i < voices; i++) {

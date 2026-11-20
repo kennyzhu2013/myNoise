@@ -17,11 +17,11 @@ export const metadata: Metadata = {
     template: "%s · 声境",
   },
   description:
-    "声境是可以现场调的自然声景。四处核心声景使用 CC0 录音，其余在浏览器里合成。适合专注、放松和入睡。",
+    "声境是可以现场调的自然声景。九处声景使用 CC0 现场录音，个别短音和低频仍在浏览器里合成。适合专注、放松和入睡。",
   applicationName: "声境",
   openGraph: {
     title: "声境 Shengjing",
-    description: "可以现场调的自然声景。四处核心声景使用 CC0 录音，其余在浏览器里合成。",
+    description: "可以现场调的自然声景。九处声景使用 CC0 现场录音，个别短音和低频仍在浏览器里合成。",
     locale: "zh_CN",
     type: "website",
   },

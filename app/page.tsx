@@ -6,7 +6,7 @@ import { SCENES, USE_CASES, summaries } from "@/lib/catalog";
 
 const steps = [
   { n: "01", title: "选一处声景", body: "按专注、放松、助眠或自然噪挑，也可以直接点名字。" },
-  { n: "02", title: "按下播放", body: "四处核心声景播放现场录音，其余在浏览器里合成，并一直无缝循环。" },
+  { n: "02", title: "按下播放", body: "九处声景都播放现场录音，并一直无缝循环。个别短音和低频仍在浏览器里合成。" },
   { n: "03", title: "再调每一层", body: "轻柔、均衡、强烈是起点。推子决定远近和浓淡。" },
 ];
 
@@ -20,7 +20,7 @@ export default function HomePage() {
           <p className="font-display text-sm tracking-[0.2em] text-primary">Shengjing</p>
           <h1 className="mt-3 text-5xl leading-tight md:text-7xl">声境</h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-            雨落在屋檐上，潮水爬上沙滩，虫鸣停在夏夜。声境把这些自然纹理做成可以现场调的多层混音。檐雨、海岸、清晨的林子和石涧用可再分发的现场录音做主体，其余层次在浏览器里合成。
+            雨落在屋檐上，潮水爬上沙滩，虫鸣停在夏夜。声境把这些自然纹理做成可以现场调的多层混音。九处声景的主体都是可再分发的现场录音，滴答、雷声和少数层次仍在浏览器里合成。
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild size="lg">
@@ -30,7 +30,7 @@ export default function HomePage() {
               <Link href="/scenes/for/sleep">先听助眠</Link>
             </Button>
           </div>
-          <p className="mt-6 text-sm text-muted-foreground">九处声景 · 四处使用现场录音 · 其余程序合成</p>
+          <p className="mt-6 text-sm text-muted-foreground">九处声景 · 现场录音做主体 · 个别层次仍是程序合成</p>
         </div>
       </section>
 

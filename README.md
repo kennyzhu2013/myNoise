@@ -1,6 +1,6 @@
 # 声境 Shengjing
 
-A small natural-soundscape player. The interface is in Chinese. The sounds are synthesized in the browser with the Web Audio API. There are no recorded samples, and nothing here is taken from myNoise or any other soundscape product: no name, logo, copy, or audio.
+A small natural-soundscape player. The interface is in Chinese. Continuous layers play CC0 field recordings, with a synthesizer underneath when a layer has no recording. Nothing here is taken from myNoise or any other soundscape product: no name, logo, copy, or audio.
 
 Shengjing (声境) is a mixer. Each scene is a set of nine layers — rain curtain, eaves, distant thunder, crickets — with its own fader. Presets are starting points. The loops do not end.
 
@@ -38,7 +38,7 @@ Thunder and the campfire are marked in the player: those layers get suddenly lou
 
 ## How the audio works
 
-Four scenes (`eave-rain`, `coast`, `forest`, `creek`) play CC0 field recordings on their continuous layers. Each of those faders has its own file in `public/audio/stems/`, trimmed, loudness-matched, and crossfaded so it loops. Coast beds keep their tide envelopes, so a breaking wave still rises and falls instead of sitting at a flat level. The coast gull is not a looping shore bed: a few short CC0 calls are scheduled occasionally, and the synthesizer gull is used only if those files fail to load. Drops, bubbles, forest birds, and the other five scenes stay on the synthesizer. Credits and source URLs are in `lib/audio/stems.ts` and on `/about`.
+All nine scenes play CC0 field recordings on the continuous layers that have a licensed stem. Each of those faders has its own file in `public/audio/stems/`, trimmed, loudness-matched, and crossfaded so it loops. Coast beds keep their tide envelopes, and wind and rain beds keep their gust curves, so a recording still rises and falls instead of sitting at a flat level. Filter sweeps stay off recordings. Short events — gulls, spray, drips, thunder, frogs, night birds, and fire ticks — are separate takes scheduled on the original sparse clock, not looped beds. A layer with no clear CC0 recording, and any file that fails to load, stays on the synthesizer. Credits and source URLs are in `lib/audio/stems.ts` and on `/about`.
 
 Everything else is generated when you press play.
 
@@ -53,7 +53,7 @@ Noise buffers (white / pink / brown, 8s, crossfaded loop)
   -> bus -> high-pass -> compressor -> soft clip -> master GainNode
 ```
 
-One-shots (drops, splashes, crackles, thunder, chirps, bubbles, frogs, gulls) are scheduled on the audio clock a few hundred milliseconds ahead, so pausing the `AudioContext` pauses them too. Cricket and katydid layers are oscillators plus filtered noise, amplitude-modulated by a looping pulse phrase. Each voice is detuned and offset so they do not lock together.
+One-shots (drops, splashes, crackles, thunder, chirps, bubbles, frogs, gulls) are scheduled on the audio clock a few hundred milliseconds ahead, so pausing the `AudioContext` pauses them too. When a one-shot layer has short CC0 takes, those takes are picked at random on the same clock; otherwise the synthesizer voice is used. Cricket and katydid layers play a looped field recording when one is licensed, and otherwise oscillators plus filtered noise, amplitude-modulated by a looping pulse phrase. Each synthesized voice is detuned and offset so they do not lock together.
 
 Loop points are hidden in three ways: an equal-power crossfade baked into the noise buffer, a random start offset, and a playback rate that is slightly different per layer. Slow control curves (gusts, tides, insect phrases) are `AudioBuffer`s at 8 kHz, which is enough for envelopes and much smaller than full-rate audio.
 
