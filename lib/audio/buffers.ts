@@ -1,5 +1,5 @@
-import { normalize, removeDc, renderBurst, renderNoise, seamless } from "@/lib/audio/dsp";
-import type { NoiseColor } from "@/lib/audio/types";
+import { normalize, removeDc, renderBurst, renderNoise, sculptAttenuation, seamless } from "@/lib/audio/dsp";
+import type { FilterSpec, NoiseColor } from "@/lib/audio/types";
 
 export type Palette = {
   whiteStereo: AudioBuffer;
@@ -56,6 +56,31 @@ export function createPalette(ctx: AudioContext): Palette {
     splash: burst(0.22, 2.05),
     crack: burst(0.034, 5.6),
   };
+}
+
+/** Long enough to hide an MP3 edge step, short enough not to double a wave or a chirp. */
+const LOOP_FADE_SECONDS = 0.36;
+
+/**
+ * Equal-power crossfade so `AudioBufferSourceNode.loop` does not click.
+ * Short one-shots are returned unchanged.
+ */
+export function prepareLoop(ctx: BaseAudioContext, buffer: AudioBuffer): AudioBuffer {
+  const fade = Math.floor(buffer.sampleRate * LOOP_FADE_SECONDS);
+  if (fade < 8 || fade * 2 >= buffer.length) return buffer;
+  const channels = Array.from({ length: buffer.numberOfChannels }, (_, index) =>
+    seamless(buffer.getChannelData(index), fade),
+  );
+  return bufferFrom(ctx, channels, buffer.sampleRate);
+}
+
+/** Gain that keeps a dry recording near the level its noise-sculpting filter used to set. */
+export function recordingTrim(buffer: AudioBuffer, filter: FilterSpec): number {
+  const data = buffer.getChannelData(0);
+  const start = Math.min(Math.max(0, data.length - 1), Math.floor(data.length * 0.15));
+  const count = Math.min(data.length - start, Math.floor(buffer.sampleRate * 4));
+  if (count < 64) return 1;
+  return sculptAttenuation(data.subarray(start, start + count), buffer.sampleRate, filter);
 }
 
 export function noiseBuffer(palette: Palette, kind: NoiseColor, stereo: boolean): AudioBuffer {
