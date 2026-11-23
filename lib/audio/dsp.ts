@@ -56,7 +56,11 @@ export function normalize(data: Float32Array, targetRms: number) {
   for (let i = 0; i < data.length; i++) data[i] = Math.tanh(data[i] * gain);
 }
 
-/** Crossfade the extra tail into the head so a loop has no click. */
+/**
+ * Crossfade the extra tail into the head so a loop has no click.
+ * The new wrap falls on two samples that were already neighbors, so the
+ * join itself is continuous. The fade only hides the old, unrelated edges.
+ */
 export function seamless(samples: Float32Array, fade: number): Float32Array {
   if (fade <= 1 || fade >= samples.length) return samples;
   const length = samples.length - fade;
@@ -68,6 +72,98 @@ export function seamless(samples: Float32Array, fade: number): Float32Array {
     out[i] = samples[i] * fadeIn + samples[length + i] * fadeOut;
   }
   return out;
+}
+
+/**
+ * Linear gain that puts a dry recording near the level the catalog biquad
+ * would have left. Flat RMS, not loudness: this is what the master compressor
+ * sees. Clamped so a very narrow filter cannot silence the fader, and so a
+ * resonant bump cannot turn the take up.
+ */
+export function sculptAttenuation(
+  samples: Float32Array,
+  sampleRate: number,
+  filter: { type: string; freq: number; q: number },
+): number {
+  const kernel = biquadKernel(filter.type, filter.freq, filter.q, sampleRate);
+  if (!kernel || samples.length < 64 || sampleRate < 1000) return 1;
+  const skip = Math.min(samples.length - 1, Math.floor(sampleRate * 0.05));
+  const dry = rmsFrom(samples, skip);
+  if (dry < 1e-8) return 1;
+  const wet = filteredRms(samples, kernel, skip);
+  const ratio = wet / dry;
+  if (!Number.isFinite(ratio) || ratio <= 0) return 1;
+  return Math.min(1, Math.max(0.35, ratio));
+}
+
+function rmsFrom(samples: Float32Array, skip: number) {
+  let sum = 0;
+  let count = 0;
+  for (let i = skip; i < samples.length; i++) {
+    const sample = samples[i];
+    sum += sample * sample;
+    count += 1;
+  }
+  return Math.sqrt(sum / Math.max(1, count));
+}
+
+function filteredRms(samples: Float32Array, kernel: BiquadKernel, skip: number) {
+  const [b0, b1, b2, a1, a2] = kernel;
+  let x1 = 0;
+  let x2 = 0;
+  let y1 = 0;
+  let y2 = 0;
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const x = samples[i];
+    const y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1;
+    x1 = x;
+    y2 = y1;
+    y1 = y;
+    if (i >= skip) {
+      sum += y * y;
+      count += 1;
+    }
+  }
+  return Math.sqrt(sum / Math.max(1, count));
+}
+
+type BiquadKernel = [number, number, number, number, number];
+
+/** Web Audio biquad coefficients for the three catalog filter types. */
+function biquadKernel(type: string, freq: number, q: number, sampleRate: number): BiquadKernel | null {
+  const nyquist = sampleRate * 0.5;
+  if (!(nyquist > 2)) return null;
+  const f = Math.min(nyquist - 1, Math.max(1, freq));
+  const Q = Math.min(1000, Math.max(0.0001, q));
+  const w0 = (2 * Math.PI * f) / sampleRate;
+  const cos = Math.cos(w0);
+  const sin = Math.sin(w0);
+  const alpha = sin / (2 * Q);
+  const a0 = 1 + alpha;
+  const a1 = -2 * cos;
+  const a2 = 1 - alpha;
+  let b0: number;
+  let b1: number;
+  let b2: number;
+  if (type === "lowpass") {
+    b0 = (1 - cos) / 2;
+    b1 = 1 - cos;
+    b2 = (1 - cos) / 2;
+  } else if (type === "highpass") {
+    b0 = (1 + cos) / 2;
+    b1 = -(1 + cos);
+    b2 = (1 + cos) / 2;
+  } else if (type === "bandpass") {
+    b0 = alpha;
+    b1 = 0;
+    b2 = -alpha;
+  } else {
+    return null;
+  }
+  return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
 }
 
 export function renderBurst(frames: number, decay: number): Float32Array {

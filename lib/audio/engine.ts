@@ -1,4 +1,4 @@
-import { bufferFrom, createPalette, noiseBuffer, type Palette } from "@/lib/audio/buffers";
+import { bufferFrom, createPalette, noiseBuffer, prepareLoop, recordingTrim, type Palette } from "@/lib/audio/buffers";
 import { renderControl, renderCricket, renderKatydid, renderWave } from "@/lib/audio/dsp";
 import { glide, sliderToGain } from "@/lib/audio/gain";
 import { spawnParticle } from "@/lib/audio/spawn";
@@ -16,10 +16,11 @@ type Fader = {
 };
 
 /**
- * Realtime mixer. Scenes play seamless recorded loops on the bed and
- * cricket layers that have a licensed stem. Sparse layers with short
- * takes play those takes instead of a synthesized one-shot. Every other
- * layer stays on the synthesized noise, envelope, and one-shot graph.
+ * Realtime mixer. Bed and cricket layers with a licensed stem play that
+ * recording: crossfaded after decode, at its natural speed, without the
+ * noise-sculpting filter. Sparse layers with short takes play those takes
+ * instead of a synthesized one-shot. Every other layer stays on the
+ * synthesized noise, envelope, and one-shot graph.
  */
 export class SoundscapeEngine {
   private ctx: AudioContext | null = null;
@@ -155,10 +156,13 @@ export class SoundscapeEngine {
         if (!this.calls.has(call.id)) calls.set(call.id, call.src);
       }
     }
-    await Promise.all([this.loadBuffers(beds, this.stems), this.loadBuffers(calls, this.calls)]);
+    await Promise.all([
+      this.loadBuffers(beds, this.stems, true),
+      this.loadBuffers(calls, this.calls, false),
+    ]);
   }
 
-  private async loadBuffers(needed: Map<string, string>, into: Map<string, AudioBuffer>) {
+  private async loadBuffers(needed: Map<string, string>, into: Map<string, AudioBuffer>, loop: boolean) {
     const ctx = this.ctx;
     if (!ctx || needed.size === 0) return;
     await Promise.all(
@@ -168,7 +172,7 @@ export class SoundscapeEngine {
           if (!response.ok) return;
           const encoded = await response.arrayBuffer();
           const audio = await ctx.decodeAudioData(encoded.slice(0));
-          into.set(id, audio);
+          into.set(id, loop ? prepareLoop(ctx, audio) : audio);
         } catch {
           // This layer falls back to the synthesizer.
         }
@@ -255,6 +259,32 @@ export class SoundscapeEngine {
     });
   }
 
+  /**
+   * A field recording already has a spectrum and a pitch. The catalog biquad
+   * was tuned to turn noise into a layer; on a take it leaves a narrow band and
+   * makes the loop edge obvious. Unity playback rate keeps the resampler off
+   * the wrap. The trim stands in for the energy that filter used to remove,
+   * so the fader and the master compressor stay where they were. A feedback
+   * delay on a recording is a comb, so the canyon slap stays on the synth path.
+   */
+  private buildRecordedBed(track: BedTrack, buffer: AudioBuffer) {
+    const ctx = this.ctx;
+    const bus = this.bus;
+    if (!ctx || !bus) return;
+    const src = playLoop(ctx, buffer, Math.random() * buffer.duration, 1);
+    this.own(src);
+    const trim = ctx.createGain();
+    trim.gain.value = recordingTrim(buffer, track.filter);
+    src.connect(trim);
+    const shape = this.shapeGain(track.gain);
+    trim.connect(shape);
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = track.pan ?? 0;
+    if (track.panLfo) this.lfo(panner.pan, track.panLfo.rate, track.panLfo.depth);
+    shape.connect(panner);
+    panner.connect(this.fader(track, bus));
+  }
+
   private buildBed(slug: string, track: BedTrack) {
     const ctx = this.ctx;
     const palette = this.palette;
@@ -262,10 +292,12 @@ export class SoundscapeEngine {
     if (!ctx || !palette || !bus) return;
     const stem = stemFor(slug, track.id);
     const recorded = stem ? this.stems.get(stem.id) : undefined;
+    if (recorded) {
+      this.buildRecordedBed(track, recorded);
+      return;
+    }
     const stereo = track.stereo ?? !(track.filter.type === "lowpass" && track.filter.freq <= 340);
-    const src = recorded
-      ? playLoop(ctx, recorded, Math.random() * recorded.duration, 0.992 + Math.random() * 0.016)
-      : playLoop(ctx, noiseBuffer(palette, track.noise, stereo), Math.random() * 7, 0.985 + Math.random() * 0.03);
+    const src = playLoop(ctx, noiseBuffer(palette, track.noise, stereo), Math.random() * 7, 0.985 + Math.random() * 0.03);
     this.own(src);
     const filter = ctx.createBiquadFilter();
     filter.type = track.filter.type;
@@ -281,12 +313,11 @@ export class SoundscapeEngine {
     } else {
       src.connect(filter);
     }
-    // Filter sweeps were tuned to keep noise from sitting still. On a recording
-    // they turn the layer into a wah. Tide, burble and gust curves stay, so a
-    // coast bed still rises and falls with the others.
-    if (!recorded && track.filterLfo) this.lfo(filter.frequency, track.filterLfo.rate, track.filterLfo.depth);
-    if (!recorded && track.filterLfo2) this.lfo(filter.frequency, track.filterLfo2.rate, track.filterLfo2.depth);
-    if (!recorded && track.wander) this.wander(filter.frequency, track.wander.min, track.wander.max, track.wander.interval);
+    // Filter sweeps keep synthesized noise from sitting still. Recorded beds
+    // never reach this graph. Tide, burble and gust curves still run for both.
+    if (track.filterLfo) this.lfo(filter.frequency, track.filterLfo.rate, track.filterLfo.depth);
+    if (track.filterLfo2) this.lfo(filter.frequency, track.filterLfo2.rate, track.filterLfo2.depth);
+    if (track.wander) this.wander(filter.frequency, track.wander.min, track.wander.max, track.wander.interval);
     const shape = this.shapeGain(track.gain);
     filter.connect(shape);
     const panner = ctx.createStereoPanner();
@@ -352,7 +383,7 @@ export class SoundscapeEngine {
     const recorded = stem ? this.stems.get(stem.id) : undefined;
     if (recorded) {
       const dest = this.fader(track, bus);
-      const src = playLoop(ctx, recorded, Math.random() * recorded.duration, 0.992 + Math.random() * 0.016);
+      const src = playLoop(ctx, recorded, Math.random() * recorded.duration, 1);
       this.own(src);
       const motion = ctx.createGain();
       motion.gain.value = 1;
